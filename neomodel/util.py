@@ -5,8 +5,9 @@ import time
 import warnings
 from threading import local
 
-from neo4j import GraphDatabase, basic_auth, CypherError, SessionError
-from neo4j.types.graph import Node
+from neo4j import GraphDatabase, basic_auth
+from neo4j.exceptions import Neo4jError, DriverError
+from neo4j.graph import Node
 
 from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed, ModelDefinitionMismatch
@@ -86,9 +87,23 @@ class Database(local, NodeClassRegistry):
         """
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing' or u.scheme == 'neo4j'):
-            credentials, hostname = u.netloc.rsplit('@', 1)
-            username, password, = credentials.split(':')
+        if u.netloc.find("@") > -1 and u.scheme in [
+            "bolt",
+            "neo4j",
+            "bolt+routing",
+            "bolt+ssc",
+            "bolt+s",
+            "neo4j+ssc",
+            "neo4j+s",
+        ]:
+            # TODO: Remove this is an upcoming version
+            if u.scheme == "bolt+routing":
+                warnings.warn(
+                    'The "bolt+routing" scheme has been renamed to "neo4j" instead. Please update your config.',
+                    category=DeprecationWarning,
+                    stacklevel=1,
+                )
+                u.scheme = "neo4j"
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {0}".format(url))
@@ -96,7 +111,7 @@ class Database(local, NodeClassRegistry):
         self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
                                            encrypted=config.ENCRYPTED_CONNECTION,
-                                           max_pool_size=config.MAX_POOL_SIZE)
+            max_connection_pool_size=config.MAX_POOL_SIZE,
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
@@ -110,11 +125,11 @@ class Database(local, NodeClassRegistry):
 
     @property
     def write_transaction(self):
-        return TransactionProxy(self, access_mode="WRITE")
+        return TransactionProxy(self, default_access_mode="WRITE")
         
     @property
     def read_transaction(self):
-        return TransactionProxy(self, access_mode="READ")        
+        return TransactionProxy(self, default_access_mode="READ")
 
     @ensure_connection
     def begin(self, access_mode=None):
@@ -123,7 +138,7 @@ class Database(local, NodeClassRegistry):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
+            default_access_mode=access_mode
 
     @ensure_connection
     def commit(self):
@@ -220,9 +235,7 @@ class Database(local, NodeClassRegistry):
                 # Do any automatic resolution required
                 results = self._object_resolution(results)
                 
-        except CypherError as ce:
-            if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
-                if 'already exists with label' in ce.message and handle_unique:
+        except Neo4jError as ce:
                     raise UniqueProperty(ce.message)
 
                 raise ConstraintValidationFailed(ce.message)
@@ -232,7 +245,7 @@ class Database(local, NodeClassRegistry):
                     raise exc_info[1].with_traceback(exc_info[2])
                 else:
                     raise exc_info[1]
-        except SessionError:
+        except DriverError:
             if retry_on_session_expire:
                 self.set_connection(self.url)
                 return self.cypher_query(query=query,
@@ -261,8 +274,7 @@ class TransactionProxy(object):
         if exc_value:
             self.db.rollback()
 
-        if exc_type is CypherError:
-            if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
+        if exc_type is Neo4jError:
                 raise UniqueProperty(exc_value.message)
                 
         if not exc_value:

@@ -1,4 +1,4 @@
-from neobolt.addressing import AddressError
+from neo4j.exceptions import DriverError
 from pytest import raises
 
 from neomodel import db, StructuredNode, StringProperty, UniqueProperty
@@ -75,8 +75,7 @@ def test_set_connection_works():
     from socket import gaierror
 
     old_url = db.url
-    with raises(AddressError):
-        db.set_connection('bolt://user:password@6.6.6.6.6.6.6.6:7687')
+    with raises(ValueError):
     db.set_connection(old_url)
     # set connection back
     assert APerson(name='New guy2').save()

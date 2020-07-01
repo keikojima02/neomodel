@@ -258,7 +258,7 @@ def test_independent_property_name_get_or_create():
     x.delete()
 
 
-@mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
+@mark.parametrize("normalized_class", (NormalizedProperty,))
 def test_normalized_property(normalized_class):
 
     class TestProperty(normalized_class):

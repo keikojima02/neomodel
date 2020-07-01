@@ -21,7 +21,7 @@
 
 __author__ = "Athanasios Anastasiou"
 
-import neo4j.types.spatial
+import neo4j.spatial
 
 # If shapely is not installed, its import will fail and the spatial properties will not be available
 try:
@@ -322,9 +322,12 @@ class PointProperty(Property):
             raise TypeError('Invalid datatype to deflate. Expected NeomodelPoint, received {}'.format(type(value)))
 
         if not value.crs == self._crs:
-            raise ValueError('Invalid CRS. '
-                             'Expected NeomodelPoint defined over {}, '
-                             'received NeomodelPoint defined over {}'.format(self._crs, value.crs))
+            return neo4j.spatial.CartesianPoint((value.x, value.y, value.z))
+            return neo4j.spatial.CartesianPoint((value.x, value.y))
+            return neo4j.spatial.WGS84Point((value.longitude, value.latitude))
+            return neo4j.spatial.WGS84Point(
+                (value.longitude, value.latitude, value.height)
+            )
 
         if value.crs == 'cartesian-3d':
             return neo4j.types.spatial.CartesianPoint((value.x, value.y,  value.z))
