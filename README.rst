@@ -34,8 +34,9 @@ Available on readthedocs_.
 Requirements
 ============
 
-- Python 2.7 (Up to version 3.3.1), 3.4+
-- neo4j 3.0, 3.1, 3.2, 3.3
+- Python 3.5+
+- `Supported version <https://neo4j.com/developer/kb/neo4j-supported-versions/>`_ of neo4j
+
 
 Installation
 ============
@@ -48,23 +49,34 @@ To install from github::
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
-Upgrading 2.x to 3.x
+Upgrading 3.x to 4.x
 ====================
 
- * Now utilises neo4j_driver as the backend which uses bolt so neo4j 3 is required
- * Connection now set through config.DATABASE_URL (see getting started docs)
- * The deprecated category() method on StructuredNode has been removed
- * The deprecated index property on StructuredNode has been removed
- * The streaming=True flag is now irrelevant with bolt and produces a deprecation warning
- * Batch operations must now be wrapped in a transaction in order to be atomic
- * Indexing NodeSets returns a single node now as opposed to a list
+ * The deprecated search() method on RelationshipManager has been removed (use filter() instead)
+ * The deprecated NormalProperty has been removed (use NormalizedProperty instead)
+ * The "bolt+routing" scheme has been replaced with "neo4j". Using "bolt+routing" produces a deprecation warning, and replaces the scheme with "neo4j"
+ * Neo4j no longer supports Python 2.7, or versions below 3.5
+ * neobolt and neotime are no longer required
+ * The ConnectionExpired exception has been removed
+ * Be aware of changes in https://github.com/neo4j/neo4j-python-driver/wiki/4.0-changelog
+    * Connections are now unencrypted by default; to reproduce former behaviour, set ENCRYPTED_CONNECTION to True and scheme to "neo4j+s", "neo4j+ssc", "bolt+s" or "bolt+ssc"
+    * The neo4j.v1 subpackage is now no longer available; all imports should be taken from the neo4j package instead.
+    * CypherError is now Neo4jError
+    * max_pool_size is now max_connection_pool_size
+    * access_mode is now default_access_mode
+
+Using an older version
+======================
+
+To use an older version, for instances where you have to use Python 2.7, use neo4j-driver 1.7 and neomodel 3.3.2.
+
 
 Contributing
 ============
 
 Ideas, bugs, tests and pull requests always welcome. 
 
-As of release `3.3.2` we now have a curated list of issues / development targets for
+As of release `4.0.0` we now have a curated list of issues / development targets for
 `neomodel` available on `the Wiki <https://github.com/neo4j-contrib/neomodel/wiki/TODOs-&-Enhancements>`_.
 
 If you are interested in developing `neomodel` further, pick a subject from the list and open a Pull Request (PR) for 
