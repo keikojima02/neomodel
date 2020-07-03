@@ -28,15 +28,19 @@ def test_drop_labels():
     # Returning all old constraints and indexes
     # Versions prior to 4.0 have a very different return format
     for constraint in constraints_before:
-        if constraint[0].startswith('CONSTRAINT '):
-            db.cypher_query('CREATE ' + constraint[0])
+        if constraint[0].startswith("CONSTRAINT "):
+            db.cypher_query("CREATE " + constraint[0])
         else:
-            db.cypher_query('CREATE ' + constraint[1])
+            db.cypher_query("CREATE " + constraint[1])
     for index in indexes_before:
         try:
-            if not isinstance(index[0], int) and index[0].startswith('INDEX '):
-                db.cypher_query('CREATE ' + index[0])
+            if not isinstance(index[0], int) and index[0].startswith("INDEX "):
+                db.cypher_query("CREATE " + index[0])
             else:
-                db.cypher_query('CREATE INDEX {0} FOR (n:{1}) ON (n.{2})'.format(index[1], index[7][0], index[8][0]))
+                db.cypher_query(
+                    "CREATE INDEX {0} FOR (n:{1}) ON (n.{2})".format(
+                        index[1], index[7][0], index[8][0]
+                    )
+                )
         except ClientError:
             pass

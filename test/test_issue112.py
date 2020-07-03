@@ -2,7 +2,7 @@ from neomodel import StructuredNode, RelationshipTo
 
 
 class SomeModel(StructuredNode):
-    test = RelationshipTo('SomeModel', 'SELF')
+    test = RelationshipTo("SomeModel", "SELF")
 
 
 def test_len_relationship():

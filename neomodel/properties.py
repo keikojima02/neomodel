@@ -20,6 +20,7 @@ if sys.version_info >= (3, 0):
 def display_for(key):
     def display_choice(self):
         return getattr(self.__class__, key).choices[getattr(self, key)]
+
     return display_choice
 
 
@@ -31,20 +32,22 @@ class PropertyManager(object):
     def __init__(self, **kwargs):
         properties = getattr(self, "__all_properties__", None)
         if properties is None:
-            properties = \
-                self.defined_properties(rels=False, aliases=False).items()
+            properties = self.defined_properties(rels=False, aliases=False).items()
         for name, property in properties:
             if kwargs.get(name) is None:
-                if getattr(property, 'has_default', False):
+                if getattr(property, "has_default", False):
                     setattr(self, name, property.default_value())
                 else:
                     setattr(self, name, None)
             else:
                 setattr(self, name, kwargs[name])
 
-            if getattr(property, 'choices', None):
-                setattr(self, 'get_{0}_display'.format(name),
-                        types.MethodType(display_for(name), self))
+            if getattr(property, "choices", None):
+                setattr(
+                    self,
+                    "get_{0}_display".format(name),
+                    types.MethodType(display_for(name), self),
+                )
 
             if name in kwargs:
                 del kwargs[name]
@@ -52,7 +55,8 @@ class PropertyManager(object):
         aliases = getattr(self, "__all_aliases__", None)
         if aliases is None:
             aliases = self.defined_properties(
-                aliases=True, rels=False, properties=False).items()
+                aliases=True, rels=False, properties=False
+            ).items()
         for name, property in aliases:
             if name in kwargs:
                 setattr(self, name, kwargs[name])
@@ -66,26 +70,24 @@ class PropertyManager(object):
     def __properties__(self):
         from .relationship_manager import RelationshipManager
 
-        return dict((name, value) for name, value in vars(self).items()
-                    if not name.startswith('_')
-                    and not callable(value)
-                    and not isinstance(value,
-                                       (RelationshipManager, AliasProperty,))
-                    )
+        return dict(
+            (name, value)
+            for name, value in vars(self).items()
+            if not name.startswith("_")
+            and not callable(value)
+            and not isinstance(value, (RelationshipManager, AliasProperty,))
+        )
 
     @classmethod
     def deflate(cls, properties, obj=None, skip_empty=False):
         # deflate dict ready to be stored
         deflated = {}
-        for name, property \
-                in cls.defined_properties(aliases=False, rels=False).items():
+        for name, property in cls.defined_properties(aliases=False, rels=False).items():
             db_property = property.db_property or name
             if properties.get(name) is not None:
                 deflated[db_property] = property.deflate(properties[name], obj)
             elif property.has_default:
-                deflated[db_property] = property.deflate(
-                    property.default_value(), obj
-                )
+                deflated[db_property] = property.deflate(property.default_value(), obj)
             elif property.required:
                 raise RequiredProperty(name, cls)
             elif not skip_empty:
@@ -95,23 +97,30 @@ class PropertyManager(object):
     @classmethod
     def defined_properties(cls, aliases=True, properties=True, rels=True):
         from .relationship_manager import RelationshipDefinition
+
         props = {}
         for baseclass in reversed(cls.__mro__):
-            props.update(dict(
-                (name, property) for name, property in vars(baseclass).items()
-                if (aliases and isinstance(property, AliasProperty))
-                or (properties and isinstance(property, Property)
-                    and not isinstance(property, AliasProperty))
-                or (rels and isinstance(property, RelationshipDefinition))
-            ))
+            props.update(
+                dict(
+                    (name, property)
+                    for name, property in vars(baseclass).items()
+                    if (aliases and isinstance(property, AliasProperty))
+                    or (
+                        properties
+                        and isinstance(property, Property)
+                        and not isinstance(property, AliasProperty)
+                    )
+                    or (rels and isinstance(property, RelationshipDefinition))
+                )
+            )
         return props
 
 
 def validator(fn):
-    fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
-    if fn_name == 'inflate':
+    fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
+    if fn_name == "inflate":
         exc_class = InflateError
-    elif fn_name == 'deflate':
+    elif fn_name == "deflate":
         exc_class = DeflateError
     else:
         raise Exception("Unknown Property method " + fn_name)
@@ -152,10 +161,19 @@ class Property(object):
     :type help_text: :class:`str`
     """
 
-    form_field_class = 'CharField'
+    form_field_class = "CharField"
 
-    def __init__(self, unique_index=False, index=False, required=False, default=None,
-                 db_property=None, label=None, help_text=None, **kwargs):
+    def __init__(
+        self,
+        unique_index=False,
+        index=False,
+        required=False,
+        default=None,
+        db_property=None,
+        label=None,
+        help_text=None,
+        **kwargs
+    ):
 
         if default is not None and required:
             raise ValueError(
@@ -182,7 +200,7 @@ class Property(object):
         :return: the value
         """
         if self.has_default:
-            if hasattr(self.default, '__call__'):
+            if hasattr(self.default, "__call__"):
                 return self.default()
             else:
                 return self.default
@@ -213,7 +231,7 @@ class NormalizedProperty(Property):
         return self.normalize(default)
 
     def normalize(self, value):
-        raise NotImplementedError('Specialize normalize method')
+        raise NotImplementedError("Specialize normalize method")
 
 
 class RegexProperty(NormalizedProperty):
@@ -224,7 +242,8 @@ class RegexProperty(NormalizedProperty):
 
         expression = r'[^@]+@[^@]+\.[^@]+'
     """
-    form_field_class = 'RegexField'
+
+    form_field_class = "RegexField"
 
     expression = None
 
@@ -237,17 +256,14 @@ class RegexProperty(NormalizedProperty):
         super(RegexProperty, self).__init__(**kwargs)
         actual_re = expression or self.expression
         if actual_re is None:
-            raise ValueError('expression is undefined')
+            raise ValueError("expression is undefined")
         self.expression = actual_re
 
     def normalize(self, value):
         normal = unicode(value)
         if not re.match(self.expression, normal):
             raise ValueError(
-                '{0!r} does not matches {1!r}'.format(
-                    value,
-                    self.expression,
-                )
+                "{0!r} does not matches {1!r}".format(value, self.expression,)
             )
         return normal
 
@@ -256,8 +272,9 @@ class EmailProperty(RegexProperty):
     """
     Store email addresses
     """
-    form_field_class = 'EmailField'
-    expression = r'[^@]+@[^@]+\.[^@]+'
+
+    form_field_class = "EmailField"
+    expression = r"[^@]+@[^@]+\.[^@]+"
 
 
 class StringProperty(NormalizedProperty):
@@ -275,8 +292,10 @@ class StringProperty(NormalizedProperty):
     def __init__(self, choices=None, max_length=None, **kwargs):
         if max_length is not None:
             if choices is not None:
-                raise ValueError("The arguments `choices` and `max_length` are mutually exclusive.")
-            if max_length<1:
+                raise ValueError(
+                    "The arguments `choices` and `max_length` are mutually exclusive."
+                )
+            if max_length < 1:
                 raise ValueError("`max_length` cannot be zero or take negative values.")
 
         super(StringProperty, self).__init__(**kwargs)
@@ -288,24 +307,29 @@ class StringProperty(NormalizedProperty):
             try:
                 self.choices = dict(choices)
             except Exception:
-                raise ValueError("The choices argument must be convertable to a dictionary.")
+                raise ValueError(
+                    "The choices argument must be convertable to a dictionary."
+                )
             # Python 3:
             # except Exception as e:
             #     raise ValueError("The choices argument must be convertable to "
             #                      "a dictionary.") from e
-            self.form_field_class = 'TypedChoiceField'
+            self.form_field_class = "TypedChoiceField"
 
     def normalize(self, value):
         # One thing to note here is that the following two checks can remain uncoupled
         # as long as it is guaranteed (by the constructor) that `choices` and `max_length`
-        # are mutually exclusive. If that check in the constructor ever has to be removed, 
-        # these two validation checks here will have to be coupled so that having set 
+        # are mutually exclusive. If that check in the constructor ever has to be removed,
+        # these two validation checks here will have to be coupled so that having set
         # `choices` overrides having set the `max_length`.
         if self.choices is not None and value not in self.choices:
             raise ValueError("Invalid choice: {}".format(value))
         if self.max_length is not None and len(value) > self.max_length:
-            raise ValueError("Property max length exceeded. Expected {}, got {} == len('{}')".format(
-                             self.max_length, len(value), value))
+            raise ValueError(
+                "Property max length exceeded. Expected {}, got {} == len('{}')".format(
+                    self.max_length, len(value), value
+                )
+            )
         return unicode(value)
 
     def default_value(self):
@@ -316,7 +340,8 @@ class IntegerProperty(Property):
     """
     Stores an Integer value
     """
-    form_field_class = 'IntegerField'
+
+    form_field_class = "IntegerField"
 
     @validator
     def inflate(self, value):
@@ -346,14 +371,18 @@ class ArrayProperty(Property):
         # list item type
         if base_property is not None:
             if not isinstance(base_property, Property):
-                raise TypeError('Expecting neomodel Property')
+                raise TypeError("Expecting neomodel Property")
 
             if isinstance(base_property, ArrayProperty):
-                raise TypeError('Cannot have nested ArrayProperty')
+                raise TypeError("Cannot have nested ArrayProperty")
 
-            for ilegal_attr in ['default', 'index', 'unique_index', 'required']:
+            for ilegal_attr in ["default", "index", "unique_index", "required"]:
                 if getattr(base_property, ilegal_attr, None):
-                    raise ValueError('ArrayProperty base_property cannot have "{0}" set'.format(ilegal_attr))
+                    raise ValueError(
+                        'ArrayProperty base_property cannot have "{0}" set'.format(
+                            ilegal_attr
+                        )
+                    )
 
         self.base_property = base_property
 
@@ -381,7 +410,8 @@ class FloatProperty(Property):
     """
     Store a floating point value
     """
-    form_field_class = 'FloatField'
+
+    form_field_class = "FloatField"
 
     @validator
     def inflate(self, value):
@@ -399,7 +429,8 @@ class BooleanProperty(Property):
     """
     Stores a boolean value
     """
-    form_field_class = 'BooleanField'
+
+    form_field_class = "BooleanField"
 
     @validator
     def inflate(self, value):
@@ -417,7 +448,8 @@ class DateProperty(Property):
     """
     Stores a date
     """
-    form_field_class = 'DateField'
+
+    form_field_class = "DateField"
 
     @validator
     def inflate(self, value):
@@ -426,9 +458,10 @@ class DateProperty(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, date):
-            msg = 'datetime.date object expected, got {0}'.format(repr(value))
+            msg = "datetime.date object expected, got {0}".format(repr(value))
             raise ValueError(msg)
         return value.isoformat()
+
 
 class DateTimeFormatProperty(Property):
     """
@@ -440,13 +473,14 @@ class DateTimeFormatProperty(Property):
     :type default_now:  :class:`bool`
     :type format:       :class:`str`
     """
-    form_field_class = 'DateTimeFormatField'
+
+    form_field_class = "DateTimeFormatField"
 
     def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
         if default_now:
-            if 'default' in kwargs:
-                raise ValueError('too many defaults')
-            kwargs['default'] = lambda: datetime.now()
+            if "default" in kwargs:
+                raise ValueError("too many defaults")
+            kwargs["default"] = lambda: datetime.now()
 
         self.format = format
         super(DateTimeFormatProperty, self).__init__(**kwargs)
@@ -458,10 +492,8 @@ class DateTimeFormatProperty(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+            raise ValueError("datetime object expected, got {0}.".format(type(value)))
         return datetime.strftime(value, self.format)
-
-
 
 
 class DateTimeProperty(Property):
@@ -472,13 +504,14 @@ class DateTimeProperty(Property):
                             Defaults to ``False``.
         :type default_now: :class:`bool`
     """
-    form_field_class = 'DateTimeField'
+
+    form_field_class = "DateTimeField"
 
     def __init__(self, default_now=False, **kwargs):
         if default_now:
-            if 'default' in kwargs:
-                raise ValueError('too many defaults')
-            kwargs['default'] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
+            if "default" in kwargs:
+                raise ValueError("too many defaults")
+            kwargs["default"] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
 
         super(DateTimeProperty, self).__init__(**kwargs)
 
@@ -487,17 +520,22 @@ class DateTimeProperty(Property):
         try:
             epoch = float(value)
         except ValueError:
-            raise ValueError("Float or integer expected, got {0} can't inflate to "
-                             "datetime.".format(type(value)))
+            raise ValueError(
+                "Float or integer expected, got {0} can't inflate to "
+                "datetime.".format(type(value))
+            )
         except TypeError:
             raise TypeError(
-                "Float or integer expected. Can't inflate {0} to datetime.".format(type(value)))
+                "Float or integer expected. Can't inflate {0} to datetime.".format(
+                    type(value)
+                )
+            )
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+            raise ValueError("datetime object expected, got {0}.".format(type(value)))
         if value.tzinfo:
             value = value.astimezone(pytz.utc)
             epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
@@ -568,12 +606,14 @@ class UniqueIdProperty(Property):
     """
 
     def __init__(self, **kwargs):
-        for item in ['required', 'unique_index', 'index', 'default']:
+        for item in ["required", "unique_index", "index", "default"]:
             if item in kwargs:
-                raise ValueError('{0} argument ignored by {1}'.format(item, self.__class__.__name__))
+                raise ValueError(
+                    "{0} argument ignored by {1}".format(item, self.__class__.__name__)
+                )
 
-        kwargs['unique_index'] = True
-        kwargs['default'] = lambda: uuid.uuid4().hex
+        kwargs["unique_index"] = True
+        kwargs["default"] = lambda: uuid.uuid4().hex
         super(UniqueIdProperty, self).__init__(**kwargs)
 
     @validator

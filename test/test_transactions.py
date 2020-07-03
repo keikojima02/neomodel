@@ -12,16 +12,16 @@ def test_rollback_and_commit_transaction():
     for p in APerson.nodes:
         p.delete()
 
-    APerson(name='Roger').save()
+    APerson(name="Roger").save()
 
     db.begin()
-    APerson(name='Terry S').save()
+    APerson(name="Terry S").save()
     db.rollback()
 
     assert len(APerson.nodes) == 1
 
     db.begin()
-    APerson(name='Terry S').save()
+    APerson(name="Terry S").save()
     db.commit()
 
     assert len(APerson.nodes) == 2
@@ -38,25 +38,25 @@ def test_transaction_decorator():
         p.delete()
 
     # should work
-    in_a_tx('Roger')
+    in_a_tx("Roger")
     assert True
 
     # should bail but raise correct error
     with raises(UniqueProperty):
-        in_a_tx('Jim', 'Roger')
+        in_a_tx("Jim", "Roger")
 
-    assert 'Jim' not in [p.name for p in APerson.nodes]
+    assert "Jim" not in [p.name for p in APerson.nodes]
 
 
 def test_transaction_as_a_context():
     with db.transaction:
-        APerson(name='Tim').save()
+        APerson(name="Tim").save()
 
-    assert APerson.nodes.filter(name='Tim')
+    assert APerson.nodes.filter(name="Tim")
 
     with raises(UniqueProperty):
         with db.transaction:
-            APerson(name='Tim').save()
+            APerson(name="Tim").save()
 
 
 def test_query_inside_transaction():
@@ -64,18 +64,19 @@ def test_query_inside_transaction():
         p.delete()
 
     with db.transaction:
-        APerson(name='Alice').save()
-        APerson(name='Bob').save()
+        APerson(name="Alice").save()
+        APerson(name="Bob").save()
 
         assert len([p.name for p in APerson.nodes]) == 2
 
 
 def test_set_connection_works():
-    assert APerson(name='New guy').save()
+    assert APerson(name="New guy").save()
     from socket import gaierror
 
     old_url = db.url
     with raises(ValueError):
+        db.set_connection("bolt://user:password@6.6.6.6.6.6.6.6:7687")
     db.set_connection(old_url)
     # set connection back
-    assert APerson(name='New guy2').save()
+    assert APerson(name="New guy2").save()
