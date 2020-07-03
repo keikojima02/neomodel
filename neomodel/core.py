@@ -265,12 +265,10 @@ class StructuredNode(NodeBase):
 
     @property
     def _id(self, val):
-        warnings.warn('the _id property is deprecated please use .id',
-                      category=DeprecationWarning, stacklevel=1)
-        if val:
-            self.id = val
-
-        return self.id
+        raise NotImplementedError(
+            "the _id property was deprecated and has now been removed. "
+            "Please use .id instead."
+        )
 
     # methods
 
