@@ -47,11 +47,6 @@ class StructuredRel(StructuredRelBase):
 
         return self
 
-    @deprecated('This method will be removed in neomodel 4')
-    def delete(self):
-        raise NotImplemented("Can not delete relationships please use"
-                             " 'disconnect'")
-
     def start_node(self):
         """
         Get start node
