@@ -1,5 +1,5 @@
 from neomodel import StructuredNode, StringProperty
-from neo4j import CypherError
+from neo4j.exceptions import Neo4jError
 
 
 class User2(StructuredNode):
@@ -26,8 +26,6 @@ def test_cypher_syntax_error():
     jim = User2(email='jim1@test.com').save()
     try:
         jim.cypher("MATCH a WHERE id(a)={self} RETURN xx")
-    except CypherError as e:
-        assert hasattr(e, 'message')
-        assert hasattr(e, 'code')
+    except Neo4jError as e:
     else:
-        assert False, "CypherError not raised."
+        assert False, "Neo4jError not raised."
