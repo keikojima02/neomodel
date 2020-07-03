@@ -8,9 +8,17 @@ from neomodel.exceptions import (
     InflateError, DeflateError, RequiredProperty, UniqueProperty
 )
 from neomodel.properties import (
-    ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
-    EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
-    RegexProperty, StringProperty, UniqueIdProperty, DateTimeFormatProperty
+    ArrayProperty,
+    IntegerProperty,
+    DateProperty,
+    DateTimeProperty,
+    EmailProperty,
+    JSONProperty,
+    NormalizedProperty,
+    RegexProperty,
+    StringProperty,
+    UniqueIdProperty,
+    DateTimeFormatProperty,
 )
 
 from neomodel.util import _get_node_properties
