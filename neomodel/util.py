@@ -142,11 +142,11 @@ class Database(local, NodeClassRegistry):
 
     @property
     def write_transaction(self):
-        return TransactionProxy(self, default_access_mode="WRITE")
+        return TransactionProxy(self, access_mode="WRITE")
 
     @property
     def read_transaction(self):
-        return TransactionProxy(self, default_access_mode="READ")
+        return TransactionProxy(self, access_mode="READ")
 
     @ensure_connection
     def begin(self, access_mode=None):
@@ -308,7 +308,7 @@ class TransactionProxy(object):
 
     @ensure_connection
     def __enter__(self):
-        self.db.begin(access_mode=self.access_mode)
+        self.db.begin(default_access_mode=self.access_mode)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
