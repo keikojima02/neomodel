@@ -308,7 +308,7 @@ class TransactionProxy(object):
 
     @ensure_connection
     def __enter__(self):
-        self.db.begin(default_access_mode=self.access_mode)
+        self.db.begin(access_mode=self.access_mode)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
