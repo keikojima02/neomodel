@@ -19,7 +19,7 @@ setup(
     if any(x in ("pytest", "test") for x in sys.argv)
     else [],
     tests_require=["pytest", "shapely"],
-    install_requires=["neo4j-driver==4.0.0", "pytz>=2016.10"],
+    install_requires=["neo4j-driver>=4.0.0,<4.1.0", "pytz>=2016.10"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
