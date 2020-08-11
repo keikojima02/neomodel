@@ -156,7 +156,7 @@ class Database(local, NodeClassRegistry):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
         self._active_transaction = self.driver.session(
-            default_access_mode=access_mode
+            access_mode=access_mode
         ).begin_transaction()
 
     @ensure_connection
