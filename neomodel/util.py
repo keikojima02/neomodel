@@ -5,11 +5,16 @@ import time
 import warnings
 from threading import local
 
-from neo4j import GraphDatabase, basic_auth, CypherError, SessionError
-from neo4j.types.graph import Node
+from neo4j import GraphDatabase, basic_auth
+from neo4j.exceptions import Neo4jError, DriverError
+from neo4j.graph import Node
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed, ModelDefinitionMismatch
+from .exceptions import (
+    UniqueProperty,
+    ConstraintValidationFailed,
+    ModelDefinitionMismatch,
+)
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -23,7 +28,7 @@ logger = logging.getLogger(__name__)
 def ensure_connection(func):
     def wrapper(self, *args, **kwargs):
         # Sort out where to find url
-        if hasattr(self, 'db'):
+        if hasattr(self, "db"):
             _db = self.db
         else:
             _db = self
@@ -36,20 +41,24 @@ def ensure_connection(func):
 
 
 def change_neo4j_password(db, new_password):
-    db.cypher_query("CALL dbms.changePassword($password)", {'password': new_password})
+    db.cypher_query("CALL dbms.changePassword($password)", {"password": new_password})
+
 
 def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
     import neomodel.core as core
+
     db.cypher_query("MATCH (a) DETACH DELETE a")
     if clear_constraints:
         core.drop_constraints()
     if clear_indexes:
-        core.drop_indexes()   
+        core.drop_indexes()
+
 
 class NodeClassRegistry:
     """
     A singleton class via which all instances share the same Node Class Registry.
     """
+
     # Maintains a lookup directory that is used by cypher_query
     # to infer which class to instantiate by examining the labels of the
     # node in the resultset.
@@ -58,20 +67,23 @@ class NodeClassRegistry:
     _NODE_CLASS_REGISTRY = {}
 
     def __init__(self):
-        self.__dict__['_NODE_CLASS_REGISTRY'] = self._NODE_CLASS_REGISTRY
+        self.__dict__["_NODE_CLASS_REGISTRY"] = self._NODE_CLASS_REGISTRY
 
     def __str__(self):
-        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
-                         self._NODE_CLASS_REGISTRY.items()))
+        ncr_items = list(
+            map(
+                lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                self._NODE_CLASS_REGISTRY.items(),
+            )
+        )
         return "\n".join(ncr_items)
-
 
 
 class Database(local, NodeClassRegistry):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
-    
+
     def __init__(self):
         """
         """
@@ -86,17 +98,37 @@ class Database(local, NodeClassRegistry):
         """
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing' or u.scheme == 'neo4j'):
-            credentials, hostname = u.netloc.rsplit('@', 1)
-            username, password, = credentials.split(':')
+        if u.netloc.find("@") > -1 and u.scheme in [
+            "bolt",
+            "neo4j",
+            "bolt+routing",
+            "bolt+ssc",
+            "bolt+s",
+            "neo4j+ssc",
+            "neo4j+s",
+        ]:
+            # TODO: Remove this is an upcoming version
+            if u.scheme == "bolt+routing":
+                warnings.warn(
+                    'The "bolt+routing" scheme has been renamed to "neo4j" instead. Please update your config.',
+                    category=DeprecationWarning,
+                    stacklevel=1,
+                )
+                u.scheme = "neo4j"
+            credentials, hostname = u.netloc.rsplit("@", 1)
+            username, password, = credentials.split(":")
         else:
-            raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
-                             " got {0}".format(url))
+            raise ValueError(
+                "Expecting url format: bolt://user:password@localhost:7687"
+                " got {0}".format(url)
+            )
 
-        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
-                                           auth=basic_auth(username, password),
-                                           encrypted=config.ENCRYPTED_CONNECTION,
-                                           max_pool_size=config.MAX_POOL_SIZE)
+        self.driver = GraphDatabase.driver(
+            u.scheme + "://" + hostname,
+            auth=basic_auth(username, password),
+            encrypted=config.ENCRYPTED_CONNECTION,
+            max_connection_pool_size=config.MAX_POOL_SIZE,
+        )
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
@@ -111,10 +143,10 @@ class Database(local, NodeClassRegistry):
     @property
     def write_transaction(self):
         return TransactionProxy(self, access_mode="WRITE")
-        
+
     @property
     def read_transaction(self):
-        return TransactionProxy(self, access_mode="READ")        
+        return TransactionProxy(self, access_mode="READ")
 
     @ensure_connection
     def begin(self, access_mode=None):
@@ -123,7 +155,9 @@ class Database(local, NodeClassRegistry):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
+        self._active_transaction = self.driver.session(
+            access_mode=access_mode
+        ).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -156,36 +190,48 @@ class Database(local, NodeClassRegistry):
         
         :return: A list of instantiated objects.
         """
-        
+
         # Object resolution occurs in-place
         for a_result_item in enumerate(result_list):
-            for a_result_attribute in enumerate(a_result_item[1]):                    
+            for a_result_attribute in enumerate(a_result_item[1]):
                 try:
-                    # Primitive types should remain primitive types, 
+                    # Primitive types should remain primitive types,
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
-                    
+
                     if type(a_result_attribute[1]) is Node:
-                        resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(
-                            a_result_attribute[1])
-                        
+                        resolved_object = self._NODE_CLASS_REGISTRY[
+                            frozenset(a_result_attribute[1].labels)
+                        ].inflate(a_result_attribute[1])
+
                     if type(a_result_attribute[1]) is list:
-                        resolved_object = self._object_resolution([a_result_attribute[1]])                    
-                    
-                    result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
-                    
+                        resolved_object = self._object_resolution(
+                            [a_result_attribute[1]]
+                        )
+
+                    result_list[a_result_item[0]][
+                        a_result_attribute[0]
+                    ] = resolved_object
+
                 except KeyError:
-                    # Not being able to match the label set of a node with a known object results 
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # Not being able to match the label set of a node with a known object results
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
-                    raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
-                    
+                    raise ModelDefinitionMismatch(
+                        a_result_attribute[1], self._NODE_CLASS_REGISTRY
+                    )
+
         return result_list
 
-        
-        
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
+    def cypher_query(
+        self,
+        query,
+        params=None,
+        handle_unique=True,
+        retry_on_session_expire=False,
+        resolve_objects=False,
+    ):
         """
         Runs a query on the database and returns a list of results and their headers.
         
@@ -200,7 +246,7 @@ class Database(local, NodeClassRegistry):
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
-        
+
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -215,14 +261,14 @@ class Database(local, NodeClassRegistry):
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
-            
+
             if resolve_objects:
                 # Do any automatic resolution required
                 results = self._object_resolution(results)
-                
-        except CypherError as ce:
-            if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
-                if 'already exists with label' in ce.message and handle_unique:
+
+        except Neo4jError as ce:
+            if ce.code == u"Neo.ClientError.Schema.ConstraintValidationFailed":
+                if "already exists with label" in ce.message and handle_unique:
                     raise UniqueProperty(ce.message)
 
                 raise ConstraintValidationFailed(ce.message)
@@ -232,21 +278,29 @@ class Database(local, NodeClassRegistry):
                     raise exc_info[1].with_traceback(exc_info[2])
                 else:
                     raise exc_info[1]
-        except SessionError:
+        except DriverError:
             if retry_on_session_expire:
                 self.set_connection(self.url)
-                return self.cypher_query(query=query,
-                                         params=params,
-                                         handle_unique=handle_unique,
-                                         retry_on_session_expire=False)
+                return self.cypher_query(
+                    query=query,
+                    params=params,
+                    handle_unique=handle_unique,
+                    retry_on_session_expire=False,
+                )
             raise
 
-        if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
+        if os.environ.get("NEOMODEL_CYPHER_DEBUG", False):
+            logger.debug(
+                "query: "
+                + query
+                + "\nparams: "
+                + repr(params)
+                + "\ntook: {:.2g}s\n".format(end - start)
+            )
 
         return results, meta
-        
-        
+
+
 class TransactionProxy(object):
     def __init__(self, db, access_mode=None):
         self.db = db
@@ -261,13 +315,13 @@ class TransactionProxy(object):
         if exc_value:
             self.db.rollback()
 
-        if exc_type is CypherError:
-            if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
+        if exc_type is Neo4jError:
+            if exc_value.code == u"Neo.ClientError.Schema.ConstraintValidationFailed":
                 raise UniqueProperty(exc_value.message)
-                
+
         if not exc_value:
-            self.db.commit()                            
-            
+            self.db.commit()
+
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             with self:
@@ -304,7 +358,7 @@ def classproperty(f):
 # Just used for error messages
 class _UnsavedNode(object):
     def __repr__(self):
-        return '<unsaved node>'
+        return "<unsaved node>"
 
     def __str__(self):
         return self.__repr__()
@@ -313,7 +367,7 @@ class _UnsavedNode(object):
 def _get_node_properties(node):
     """Get the properties from a neo4j.v1.types.graph.Node object."""
     # 1.6.x and newer have it as `_properties`
-    if hasattr(node, '_properties'):
+    if hasattr(node, "_properties"):
         return node._properties
     # 1.5.x and older have it as `properties`
     else:

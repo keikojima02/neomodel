@@ -1,3 +1,10 @@
+Version 4.0.0 2020-03-07
+* Updated to work with Neo4j-driver 4.0 (#489) - Jais Vemmer
+* Fixed Create Unique no longer being supported (#488) - Jais Vemmer
+* Fixed {var} style variables no longer being supported (#487) - Jais Vemmer
+* Fixed neo4j:// URI validity (#486) - Jais Vemmer
+* Added support for Neo4j 4.0 (#485) - Jais Vemmer
+
 Version 3.3.2 2019-09-29
 * Fixed validation for unique properties to also be optional (#470) - Jon Daly
 * Fixed tests-with-docker-compose.sh (#452) - Jorge Valhondo Rama

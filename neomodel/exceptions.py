@@ -13,6 +13,7 @@ class AttemptedCardinalityViolation(NeomodelException):
 
     Example: a relationship of type `One` trying to connect a second node.
     """
+
     pass
 
 
@@ -22,19 +23,22 @@ class CardinalityViolation(NeomodelException):
 
     For example a relationship type `OneOrMore` returns no nodes.
     """
+
     def __init__(self, rel_manager, actual):
         self.rel_manager = str(rel_manager)
         self.actual = str(actual)
 
     def __str__(self):
-        return "CardinalityViolation: Expected: {0}, got: {1}."\
-            .format(self.rel_manager, self.actual)
+        return "CardinalityViolation: Expected: {0}, got: {1}.".format(
+            self.rel_manager, self.actual
+        )
 
 
 class ModelDefinitionException(NeomodelException):
     """
     Abstract exception to handle error conditions related to the node-to-class registry.
     """
+
     def __init__(self, db_node_class, current_node_class_registry):
         """
         Initialises the exception with the database node that caused the missmatch.
@@ -58,11 +62,14 @@ class ModelDefinitionMismatch(ModelDefinitionException):
 
     In either of these cases the mismatch must be reported
     """
+
     def __str__(self):
         node_labels = ",".join(self.db_node_class.labels())
 
-        return "Node with labels {} does not resolve to any of the known " \
-               "objects\n{}\n".format(node_labels, str(self.current_node_class_registry))
+        return (
+            "Node with labels {} does not resolve to any of the known "
+            "objects\n{}\n".format(node_labels, str(self.current_node_class_registry))
+        )
 
 
 class ClassAlreadyDefined(ModelDefinitionException):
@@ -70,12 +77,16 @@ class ClassAlreadyDefined(ModelDefinitionException):
     Raised when an attempt is made to re-map a set of labels to a class
     that already has a mapping within the node-to-class registry.
     """
+
     def __str__(self):
         node_class_labels = ",".join(self.db_node_class.inherited_labels())
 
         return "Class {}.{} with labels {} already defined:\n{}\n".format(
-            self.db_node_class.__module__, self.db_node_class.__name__,
-            node_class_labels, str(self.current_node_class_registry))
+            self.db_node_class.__module__,
+            self.db_node_class.__name__,
+            node_class_labels,
+            str(self.current_node_class_registry),
+        )
 
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
@@ -91,9 +102,12 @@ class DeflateError(ValueError, NeomodelException):
         self.obj = repr(obj)
 
     def __str__(self):
-        return ("Attempting to deflate property '{0}' on {1} of class '{2}': "
-                "{3}".format(self.property_name, self.obj,
-                             self.node_class.__name__, self.msg))
+        return (
+            "Attempting to deflate property '{0}' on {1} of class '{2}': "
+            "{3}".format(
+                self.property_name, self.obj, self.node_class.__name__, self.msg
+            )
+        )
 
 
 class DoesNotExist(NeomodelException):
@@ -127,7 +141,8 @@ class InflateConflict(NeomodelException):
     def __str__(self):
         return """Found conflict with node {0}, has property '{1}' with value '{2}'
             although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
+            self.nid, self.property_name, self.value, self.cls_name
+        )
 
 
 class InflateError(ValueError, NeomodelException):
@@ -138,9 +153,12 @@ class InflateError(ValueError, NeomodelException):
         self.obj = repr(obj)
 
     def __str__(self):
-        return ("Attempting to inflate property '{0}' on {1} of class '{2}': "
-                "{3}".format(self.property_name, self.obj,
-                             self.node_class.__name__, self.msg))
+        return (
+            "Attempting to inflate property '{0}' on {1} of class '{2}': "
+            "{3}".format(
+                self.property_name, self.obj, self.node_class.__name__, self.msg
+            )
+        )
 
 
 class DeflateConflict(InflateConflict):
@@ -148,12 +166,13 @@ class DeflateConflict(InflateConflict):
         self.cls_name = cls.__name__
         self.property_name = key
         self.value = value
-        self.nid = nid if nid else '(unsaved)'
+        self.nid = nid if nid else "(unsaved)"
 
     def __str__(self):
         return """Found trying to set property '{1}' with value '{2}' on node {0}
             although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
+            self.nid, self.property_name, self.value, self.cls_name
+        )
 
 
 class MultipleNodesReturned(ValueError, NeomodelException):
@@ -168,11 +187,16 @@ class NotConnected(NeomodelException):
         self.node2 = node2
 
     def __str__(self):
-        return ("Error performing '{0}' - Node {1} of type '{2}' is not "
-                "connected to {2} of type '{3}'."
-                .format(self.action, self.node1.id,
-                        self.node1.__class__.__name__, self.node2.id,
-                        self.node2.__class__.__name__))
+        return (
+            "Error performing '{0}' - Node {1} of type '{2}' is not "
+            "connected to {2} of type '{3}'.".format(
+                self.action,
+                self.node1.id,
+                self.node1.__class__.__name__,
+                self.node2.id,
+                self.node2.__class__.__name__,
+            )
+        )
 
 
 class RequiredProperty(NeomodelException):
@@ -182,7 +206,8 @@ class RequiredProperty(NeomodelException):
 
     def __str__(self):
         return "property '{0}' on objects of class {1}".format(
-            self.property_name, self.node_class.__name__)
+            self.property_name, self.node_class.__name__
+        )
 
 
 class UniqueProperty(ConstraintValidationFailed):
@@ -205,5 +230,5 @@ __all__ = (
     RequiredProperty.__name__,
     UniqueProperty.__name__,
     ModelDefinitionMismatch.__name__,
-    ClassAlreadyDefined.__name__
+    ClassAlreadyDefined.__name__,
 )
